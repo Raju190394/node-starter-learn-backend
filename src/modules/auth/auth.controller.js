@@ -89,7 +89,7 @@ export const verify = async (req, res) => {
     const data = req.body;
     const { id } = req.params;
     const result = await authService.verify(id, data.otp);
-    
+
     await prisma.userSession.updateMany({
       where: { userId: id },
       data: {
@@ -115,5 +115,23 @@ export const verify = async (req, res) => {
 
   }
 };
+
+export const refreshToken = async (req, res) => {
+  try {
+    const result = await authService.refreshAccessToken(
+      req.body.refreshToken
+    );
+
+    return res.json(result);
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+
+  }
+};
+
 
 

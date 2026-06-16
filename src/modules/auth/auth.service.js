@@ -3,6 +3,8 @@ import * as otpService from '../otp/otp.service.js'
 import prisma from '../../common/config/prisma.js';
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+
 import {
     generateAccessToken,
     generateRefreshToken
@@ -49,7 +51,7 @@ export const login = async (payload) => {
         .digest("hex");
     await prisma.userSession.create({
         data: {
-            userId: existingUser.id.toString(),
+            userId: BigInt(existingUser.id),
             refreshTokenHash,
 
             deviceName: payload.deviceName || "Unknown Device",
@@ -64,7 +66,7 @@ export const login = async (payload) => {
         accessToken,
         refreshToken,
         user: {
-            id: existingUser.id.toString(),
+            id: BigInt(existingUser.id),
             name: existingUser.name,
             email: existingUser.email
         }
@@ -90,7 +92,7 @@ export const verify = async (id, otp) => {
     }
     // ✅ 1. FIRST verify OTP
     const isOtpValid = await otpService.verifyOtp({
-        userId: user.id.toString(),
+        userId: BigInt(user.id),
         otp
     });
 
@@ -111,5 +113,66 @@ export const verify = async (id, otp) => {
     return {
         success: true,
         message: "OTP verified successfully",
+    };
+};
+
+export const refreshAccessToken = async (refreshToken) => {
+
+    if (!refreshToken) {
+        throw new Error("Refresh token is required");
+    }
+    console.log("refreshToken", refreshToken);
+    // 1. Verify JWT
+    let decoded;
+
+    try {
+        decoded = jwt.verify(
+            refreshToken,
+            process.env.JWT_REFRESH_SECRET
+        );
+    } catch (error) {
+        throw new Error("Invalid or expired refresh token");
+    }
+
+    // 2. Hash incoming refresh token
+    const refreshTokenHash = crypto
+        .createHash("sha256")
+        .update(refreshToken)
+        .digest("hex");
+
+    // 3. Find active session
+    const session = await prisma.userSession.findFirst({
+        where: {
+            userId: decoded.id.toString(),
+            refreshTokenHash,
+        },
+    });
+
+    if (!session) {
+        throw new Error("Refresh token not found");
+    }
+
+    // 4. Check session expiry
+    if (session.expiresAt < new Date()) {
+        throw new Error("Refresh token expired");
+    }
+
+    // 5. Get user
+    const user = await prisma.user.findUnique({
+        where: {
+            id: Number(decoded.id),
+        },
+    });
+
+    if (!user) {
+        throw new Error("User not found");
+    }
+
+    // 6. Generate new access token
+    const accessToken = generateAccessToken(user);
+
+    return {
+        success: true,
+        accessToken,
     };
 };

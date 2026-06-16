@@ -23,7 +23,7 @@ export const sendOtp = async (userId, type = "EMAIL") => {
     const otpHash = hashOtp(otp);
 
     await otpRepo.createOtp({
-        userId: user.id.toString(),
+        userId: BigInt(user.id),
         otpHash,
         type,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),

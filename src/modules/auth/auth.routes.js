@@ -3,7 +3,8 @@ import {
     login,
     register,
     logout,
-    verify
+    verify,
+    refreshToken
 } from './auth.controller.js';
 import {authMiddleware} from '../../middlewares/auth.middleware.js'
 
@@ -13,5 +14,5 @@ router.post('/login', login);
 router.post('/register', register);
 router.post('/verify/:id', verify);
 router.post('/logout', authMiddleware, logout);
-
+router.post("/refresh-token", refreshToken);
 export default router;
