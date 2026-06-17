@@ -42,6 +42,8 @@ model User {
   userSessions UserSession[]
   otp          Otp[]
 
+  role         Role? @relation(fields: [roleId], references: [id])
+
   @@index([email])
   @@index([status])
 }
@@ -53,11 +55,11 @@ model UserSession {
 
   refreshTokenHash String @db.Text
 
-  deviceName String? @db.VarChar(200)
-  ipAddress  String? @db.VarChar(50)
-  userAgent  String? @db.Text
-  isActive Boolean @default(true)
-  revokedAt DateTime?
+  deviceName String?   @db.VarChar(200)
+  ipAddress  String?   @db.VarChar(50)
+  userAgent  String?   @db.Text
+  isActive   Boolean   @default(true)
+  revokedAt  DateTime?
   lastUsedAt DateTime?
   expiresAt  DateTime
 
@@ -66,23 +68,62 @@ model UserSession {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
-
   @@index([isActive])
+  @@map("user_session")
 }
 
 model Otp {
-  id        Int      @id @default(autoincrement())
-  userId    BigInt
-  otpHash   String
-  type      String // EMAIL, PHONE, LOGIN, RESET_PASSWORD
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  attempts     Int      @default(0)
-  maxAttempts  Int      @default(3)
-  
+  id          Int      @id @default(autoincrement())
+  userId      BigInt
+  otpHash     String
+  type        String // EMAIL, PHONE, LOGIN, RESET_PASSWORD
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([type])
   @@index([expiresAt])
+}
+
+
+model Role {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+
+  users           User[]
+  permissions     RolePermission[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Permission {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+
+  roles           RolePermission[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  @@map("permission")
+}
+
+model RolePermission {
+  roleId          BigInt
+  permissionId    BigInt
+
+  role            Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission      Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
